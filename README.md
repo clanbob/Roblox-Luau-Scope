@@ -149,7 +149,7 @@ function Controller.new(gui)
 
 	self.scope.ScopeTasks:Spawn(function()
 		while true do
-			self.scope.ScopeTasks:Wait(1)
+			task.wait(1)
 			print("heartbeat")
 		end
 	end)
