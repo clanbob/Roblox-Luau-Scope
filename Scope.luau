@@ -142,8 +142,8 @@ end
 
 
 
-function Scope:Add(object : any)
-	local call = determine_method_for_scope_removal(object)
+function Scope:Add(object : any, method_name : string)
+	local call = determine_method_for_scope_removal(object) or method_name
 	if not call then
 		warn(`{object} is not a valid object to add to scope`)
 		return
@@ -170,7 +170,7 @@ end
 
 function Scope:CreateChild()
 	local child = Scope.new()
-	self:Add(child)
+	self:Add(child, "CleanUp")
 	
 	return child
 end
@@ -235,7 +235,7 @@ export type ScopeTasks = {
 export type Scope = {
 	ScopeTasks: ScopeTasks,
 
-	Add: (self: Scope, object: any) -> (),
+	Add: (self: Scope, object: any, method_name: string) -> (),
 	AddTask: (self: Scope, thread: thread) -> (),
 	CreateChild: (self: Scope) -> Scope,
 	CleanUp: (self: Scope) -> (),
