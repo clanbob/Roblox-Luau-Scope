@@ -28,18 +28,18 @@ Scope.__index = Scope
 local ScopeTasks = {}
 ScopeTasks.__index = ScopeTasks
 
-local function generate_locked_index(table : {}): number
-	local index = 0
-	repeat
-		index += 1
-		if table[index] == nil then
-			return index
-		end
-	until false
+
+local function generate_locked_index(task_object): number
+	if not task_object.index then
+		task_object.index = 0
+	end
+	
+	task_object.index += 1
+	return task_object.index
 end
 
 function ScopeTasks:Delay(time : number, fn : (...any) -> (), ...)
-	local index = generate_locked_index(self.items)
+	local index = generate_locked_index(self)
 	self.items[index] = 
 		task.delay(time, function(...)	
 			fn(...)
@@ -55,7 +55,7 @@ end
 -- If the scope is destroyed before the wait finishes, this thread will be
 -- cancelled via ScopeTasks:CleanUp(), preventing any code after this from running.
 function ScopeTasks:Wait(time : number)
-	local index = generate_locked_index(self.items)
+	local index = generate_locked_index(self)
 	self.items[index] = coroutine.running()
 
 	
@@ -64,7 +64,7 @@ function ScopeTasks:Wait(time : number)
 end
 
 function ScopeTasks:Defer(fn : (...any) -> (), ...)
-	local index = generate_locked_index(self.items)
+	local index = generate_locked_index(self)
 	self.items[index] = 
 		task.defer(function(...)		
 			fn(...)
@@ -78,14 +78,10 @@ end
 function ScopeTasks:Interval(time: number, fn: () -> ())
 	local index
 	index = self:Spawn(function()
-		pcall(function()
-			while true do
-				task.wait(time)
-				fn()
-			end
-		end)
-		
-		self.items[index] = nil
+		while true do
+			task.wait(time)
+			fn()
+		end
 	end)
 	
 	return index
@@ -189,6 +185,15 @@ function Scope:CreateChild()
 end
 
 function Scope:CancelScopeTask(index: number)
+	if not self.ScopeTasks.items[index] then
+		return
+	end
+	
+	local item = self.ScopeTasks.items[index]
+	if coroutine.status(item :: thread) ~= "dead" then
+		task.cancel(item)
+	end
+	
 	self.ScopeTasks.items[index] = nil
 end
 
