@@ -41,9 +41,9 @@ end
 function ScopeTasks:Delay(time : number, fn : (...any) -> (), ...)
 	local index = generate_locked_index(self.items)
 	self.items[index] = 
-		task.delay(time, function(...)
-			self.items[index] = nil
+		task.delay(time, function(...)	
 			fn(...)
+			self.items[index] = nil
 		end, ...)
 	
 	return index
@@ -66,9 +66,9 @@ end
 function ScopeTasks:Defer(fn : (...any) -> (), ...)
 	local index = generate_locked_index(self.items)
 	self.items[index] = 
-		task.defer(function(...)
-			self.items[index] = nil
+		task.defer(function(...)		
 			fn(...)
+			self.items[index] = nil
 		end, ...)
 	
 	return index
@@ -101,7 +101,7 @@ function ScopeTasks:Spawn(fn : (...any) -> (), ...)
 	local index = generate_locked_index(self.items)
 	self.items[index] = 
 		task.spawn(function(...)
-			pcall(fn, ...)
+			fn(...)
 			self.items[index] = nil
 		end, ...)
 	
@@ -110,7 +110,9 @@ end
 
 function ScopeTasks:CleanUp()
 	for _, item in pairs(self.items) do
-		pcall(task.cancel, item)
+		if coroutine.status(item) ~= "dead" then
+			task.cancel(item)
+		end
 	end
 	
 	table.clear(self.items)
@@ -171,7 +173,7 @@ end
 -- not recommended to use this for anything but a Spawn call
 -- that will not end, due to the nature of the scope
 -- such as it will not know when it ends, thus leaving the
--- the thread reference in memory for the duration of a
+-- dead thread reference in memory for the duration of a
 -- clean up call
 function Scope:AddTask(thread: thread)
 	local index = generate_locked_index(self.ScopeTasks.items)
