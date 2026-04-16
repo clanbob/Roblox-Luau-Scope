@@ -40,12 +40,11 @@ end
 
 function ScopeTasks:Delay(time : number, fn : (...any) -> (), ...)
 	local index = generate_locked_index(self.items)
-	self.items[index] = {
-		thread = task.delay(time, function(...)
+	self.items[index] = 
+		task.delay(time, function(...)
 			self.items[index] = nil
 			fn(...)
 		end, ...)
-	}
 	
 	return index
 end
@@ -57,9 +56,8 @@ end
 -- cancelled via ScopeTasks:CleanUp(), preventing any code after this from running.
 function ScopeTasks:Wait(time : number)
 	local index = generate_locked_index(self.items)
-	self.items[index] = {
-		thread = coroutine.running(),
-	}
+	self.items[index] = coroutine.running()
+
 	
 	task.wait(time)
 	self.items[index] = nil
@@ -67,23 +65,30 @@ end
 
 function ScopeTasks:Defer(fn : (...any) -> (), ...)
 	local index = generate_locked_index(self.items)
-	self.items[index] = {
-		thread = task.defer(function(...)
+	self.items[index] = 
+		task.defer(function(...)
 			self.items[index] = nil
 			fn(...)
-		end, ...),
-	}
+		end, ...)
 	
 	return index
 end
 
+
 function ScopeTasks:Interval(time: number, fn: () -> ())
-	return self:Spawn(function()
-		while true do
-			task.wait(time)
-			fn()
-		end
+	local index
+	index = self:Spawn(function()
+		pcall(function()
+			while true do
+				task.wait(time)
+				fn()
+			end
+		end)
+		
+		self.items[index] = nil
 	end)
+	
+	return index
 end
 
 function ScopeTasks:Wrap(fn : (...any) -> (), ...)
@@ -94,19 +99,18 @@ end
 
 function ScopeTasks:Spawn(fn : (...any) -> (), ...)
 	local index = generate_locked_index(self.items)
-	self.items[index] = {
-		thread = task.spawn(function(...)
-			fn(...)
+	self.items[index] = 
+		task.spawn(function(...)
+			pcall(fn, ...)
 			self.items[index] = nil
 		end, ...)
-	}
 	
 	return index
 end
 
 function ScopeTasks:CleanUp()
 	for _, item in pairs(self.items) do
-		pcall(task.cancel, item.thread)
+		pcall(task.cancel, item)
 	end
 	
 	table.clear(self.items)
@@ -149,7 +153,7 @@ end
 
 
 function Scope:Add(object : any, method_name : string)
-	local call = determine_method_for_scope_removal(object) or method_name
+	local call = method_name or determine_method_for_scope_removal(object)
 	if not call then
 		warn(`{object} is not a valid object to add to scope`)
 		return
@@ -160,17 +164,18 @@ function Scope:Add(object : any, method_name : string)
 		return
 	end
 	
-	self.items[object] = {
-		call = call
-	}
+	self.items[object] = call
 end
 
 
+-- not recommended to use this for anything but a Spawn call
+-- that will not end, due to the nature of the scope
+-- such as it will not know when it ends, thus leaving the
+-- the thread reference in memory for the duration of a
+-- clean up call
 function Scope:AddTask(thread: thread)
 	local index = generate_locked_index(self.ScopeTasks.items)
-	self.ScopeTasks.items[index] = {
-		thread = thread
-	}
+	self.ScopeTasks.items[index] = thread
 end
 
 
@@ -188,8 +193,8 @@ end
 function Scope:CleanUp()
 	self.ScopeTasks:CleanUp()
 	
-	for object, info in pairs(self.items) do
-		object[info.call](object)
+	for object, call in pairs(self.items) do
+		object[call](object)
 	end
 	
 	table.clear(self.items)
