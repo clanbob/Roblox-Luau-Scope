@@ -94,7 +94,7 @@ function ScopeTasks:Wrap(fn : (...any) -> (), ...)
 end
 
 function ScopeTasks:Spawn(fn : (...any) -> (), ...)
-	local index = generate_locked_index(self.items)
+	local index = generate_locked_index(self)
 	self.items[index] = 
 		task.spawn(function(...)
 			fn(...)
