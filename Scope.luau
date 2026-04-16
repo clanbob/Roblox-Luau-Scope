@@ -46,6 +46,8 @@ function ScopeTasks:Delay(time : number, fn : (...any) -> (), ...)
 			fn(...)
 		end, ...)
 	}
+	
+	return index
 end
 
 
@@ -71,10 +73,12 @@ function ScopeTasks:Defer(fn : (...any) -> (), ...)
 			fn(...)
 		end, ...),
 	}
+	
+	return index
 end
 
 function ScopeTasks:Interval(time: number, fn: () -> ())
-	self:Spawn(function()
+	return self:Spawn(function()
 		while true do
 			task.wait(time)
 			fn()
@@ -96,6 +100,8 @@ function ScopeTasks:Spawn(fn : (...any) -> (), ...)
 			self.items[index] = nil
 		end, ...)
 	}
+	
+	return index
 end
 
 function ScopeTasks:CleanUp()
@@ -175,6 +181,10 @@ function Scope:CreateChild()
 	return child
 end
 
+function Scope:CancelScopeTask(index: number)
+	self.ScopeTasks.items[index] = nil
+end
+
 function Scope:CleanUp()
 	self.ScopeTasks:CleanUp()
 	
@@ -223,12 +233,12 @@ export type ScopeObjectItem = {
 export type ScopeTasks = {
 	items: {[number]: ScopeTaskItem},
 
-	Delay: (self: ScopeTasks, time: number, fn: (...any) -> (), ...any) -> (),
+	Delay: (self: ScopeTasks, time: number, fn: (...any) -> (), ...any) -> number,
 	Wait: (self: ScopeTasks, time: number) -> (),
-	Defer: (self: ScopeTasks, fn: (...any) -> (), ...any) -> (),
-	Interval: (self: ScopeTasks, time: number, fn: () -> ()) -> (),
+	Defer: (self: ScopeTasks, fn: (...any) -> (), ...any) -> number,
+	Interval: (self: ScopeTasks, time: number, fn: () -> ()) -> number,
 	Wrap: (self: ScopeTasks, fn: (...any) -> (), ...any) -> (...any) -> (),
-	Spawn: (self: ScopeTasks, fn: (...any) -> (), ...any) -> (),
+	Spawn: (self: ScopeTasks, fn: (...any) -> (), ...any) -> number,
 	CleanUp: (self: ScopeTasks) -> (),
 }
 
@@ -239,6 +249,7 @@ export type Scope = {
 	AddTask: (self: Scope, thread: thread) -> (),
 	CreateChild: (self: Scope) -> Scope,
 	CleanUp: (self: Scope) -> (),
+	CancelScopeTask: (self: Scope, index: number) -> (),
 	Destroy: (self: Scope) -> (),
 }
 
